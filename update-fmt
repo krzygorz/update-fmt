@@ -79,10 +79,15 @@ def print_pkgrel_bump(old, new, msg=''):
 #     #There is a slight chance this might cut the message too.
 #     return msg.split(':')[-1].strip()
 
+git_repos = ["packages", "community"]
 logurl="https://git.archlinux.org/svntogit/{}.git/log/trunk"
 def last_commit_msg(pkg):
-    a = requests.get(logurl.format(pkg.db.name), {'h':'packages/'+pkg.name})
-    e = lxml.html.fromstring(a.content)
+    for repo in git_repos:
+        response = requests.get(logurl.format(repo), {'h':'packages/'+pkg.name})
+        if response.ok: break
+    else:
+        raise LookupError("Repo not found for package", pkg.name)
+    e = lxml.html.fromstring(response.content)
     return e.xpath('body/div/div/table/tr[2]/td/a/text()')[0]
 def remove_prefix(text, prefix):
     if text.startswith(prefix):
@@ -92,8 +97,8 @@ def format_commit_msg(pkg):
     msg = last_commit_msg(pkg)
     upgpkg_prefix = "upgpkg: {} {}: ".format(pkg.name, pkg.version)
     msg_trimmed = remove_prefix(msg, upgpkg_prefix)
-    return "${font DejaVu Sans Mono :size=10}${color1}"+msg_trimmed+"${color2}${font}"
-    # return "${color1}"+msg_trimmed+"${color2}"
+    # return "${font DejaVu Sans Mono :size=10}${color1}"+msg_trimmed+"${color2}${font}"
+    return "${color1}"+msg_trimmed+"${color2}"
     # return msg_trimmed
 
 handle = setup_alpm()
