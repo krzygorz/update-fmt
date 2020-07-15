@@ -34,11 +34,17 @@ def setup_alpm():
 
     config.options["DBPath"] = str(fake_db_path)
     return config.initialize_alpm()
-def alpm_update(handle):
+def alpm_update_dbs(handle):
     for db in handle.get_syncdbs():
         t = handle.init_transaction()
         db.update(False)
         t.release()
+
+#TODO: switch to str methods once python 3.9 is released
+def removeprefix(text, prefix):
+    return text[len(prefix):] if text.startswith(prefix) else text
+def removesuffix(text, suffix):
+    return text[:-len(suffix)] if text.endswith(suffix) else text
 
 def prefix_diff(r, a:str, b:str):
     a_split = r.split(a)
@@ -47,13 +53,24 @@ def prefix_diff(r, a:str, b:str):
     diff_a = ''.join(a_split[len(common):])
     diff_b = ''.join(b_split[len(common):])
     return ''.join(common), diff_a, diff_b
+
+def remove_trivial_pkgrel(ver : str):
+    return removesuffix(ver, "-1")
+
 version_fragment = re.compile(r'(\w+)')
+strip_suffix = "-1"
+def version_diff(a : str, b: str):
+    prefix, diff_a, diff_b = prefix_diff(version_fragment, a, b)
+    return (prefix,
+            remove_trivial_pkgrel(diff_a),
+            remove_trivial_pkgrel(diff_b))
+
 arrow = "→"
 def format_version_change(oldver : str, newver : str):
-    common, old_diff, new_diff = prefix_diff(version_fragment, oldver, newver)
-    if common:
-        # return '{}${{color3}}[{} → {}]${{color2}}'.format(common, old_diff, new_diff)
-        return '{}[{} {} {}]'.format(common, old_diff, arrow, new_diff)
+    prefix, middle_old, middle_new = version_diff(oldver, newver)
+    if prefix:
+        # return '{}[{} {} {}]{}'.format(prefix, middle_old, arrow, middle_new, suffix)
+        return '{}[{} {} {}]'.format(prefix, middle_old, arrow, middle_new)
     else:
         return '{} {} {}'.format(oldver, arrow, newver)
 
@@ -89,17 +106,15 @@ def last_commit_msg(pkg):
         raise LookupError("Repo not found for package", pkg.name)
     e = lxml.html.fromstring(response.content)
     return e.xpath('body/div/div/table/tr[2]/td/a/text()')[0]
-def remove_prefix(text, prefix):
-    if text.startswith(prefix):
-        return text[len(prefix):]
-    return text
+
+upgpkg_prefix = re.compile(r'upgpkg')
 def format_commit_msg(pkg):
     msg = last_commit_msg(pkg)
     upgpkg_prefix = "upgpkg: {} {}: ".format(pkg.name, pkg.version)
-    return remove_prefix(msg, upgpkg_prefix)
+    return removeprefix(msg, upgpkg_prefix)
 
 handle = setup_alpm()
-alpm_update(handle)
+alpm_update_dbs(handle)
 recompiled = []
 haskell_recompiled = []
 
