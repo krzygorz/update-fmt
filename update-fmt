@@ -96,10 +96,7 @@ def remove_prefix(text, prefix):
 def format_commit_msg(pkg):
     msg = last_commit_msg(pkg)
     upgpkg_prefix = "upgpkg: {} {}: ".format(pkg.name, pkg.version)
-    msg_trimmed = remove_prefix(msg, upgpkg_prefix)
-    # return "${font DejaVu Sans Mono :size=10}${color1}"+msg_trimmed+"${color2}${font}"
-    return "${color1}"+msg_trimmed+"${color2}"
-    # return msg_trimmed
+    return remove_prefix(msg, upgpkg_prefix)
 
 handle = setup_alpm()
 alpm_update(handle)
@@ -122,7 +119,9 @@ indent = "${goto 30}"
 wrapper = TextWrapper(width=150, initial_indent=indent, subsequent_indent=indent)
 for old, new in recompiled:
     print_pkgrel_bump(old, new)
-    print(wrapper.fill(format_commit_msg(new)))
+    msg = wrapper.fill(format_commit_msg(new)).replace('#','\\#') #apparently Conky does something special with '#'
+    print("${color1}"+msg+"${color2}")
+    # "${font DejaVu Sans Mono :size=10}${color1}"+msg+"${color2}${font}"
 
 n = len(haskell_recompiled)
 print()
