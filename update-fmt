@@ -100,7 +100,7 @@ git_repos = ["packages", "community"]
 logurl="https://git.archlinux.org/svntogit/{}.git/log/trunk"
 def last_commit_msg(pkg):
     for repo in git_repos:
-        response = requests.get(logurl.format(repo), {'h':'packages/'+pkg.name})
+        response = requests.get(logurl.format(repo), {'h':'packages/'+pkg.base})
         if response.ok: break
     else:
         # return "${color3}ERROR: Repo not found"
@@ -137,7 +137,7 @@ for pkg in handle.get_localdb().pkgcache: #type: pyalpm.Package
             print("{: <20} {}".format(pkg.name, format_version_change(pkg.version, update.version)))
 print()
 
-#TODO: Group by identical commit message
+#TODO: Group by identical commit message (for mass rebuilds and split packages)
 indent = "${goto 30}"
 wrapper = TextWrapper(width=150, initial_indent=indent, subsequent_indent=indent)
 for old, new in recompiled:
