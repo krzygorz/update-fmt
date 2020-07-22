@@ -117,7 +117,7 @@ def format_commit_msg(pkg):
     # return removeprefix(msg, upgpkg_prefix)
     msg = last_commit_msg(pkg)
     # god I hate regex
-    prefix_re = r'^(?:(?:upgpkg ?[:-] ?)?' + re.escape(pkg.name)+" )?"+re.escape(pkg.version) + r' ?[:-] ?'
+    prefix_re = r'^(?:(?:upgpkg ?[:-] ?)?' + re.escape(pkg.base)+" )?"+re.escape(pkg.version) + r' ?[:-] ?'
     return re.sub(prefix_re, "", msg)
 
 handle = setup_alpm()
