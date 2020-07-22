@@ -76,9 +76,9 @@ def format_version_change(oldver : str, newver : str):
 
 #Libalpm implements version parsing but pyalpm doesn't provide a wrapper
 def strip_release(ver : str):
-    return ver.rpartition("-")[0]
+    return ver.split("-")[0]
 def version_release(ver : str):
-    return ver.rpartition("-")[2]
+    return ver.split("-")[1]
 def is_haskell(pkg):
     return "ghc-libs" in pkg.depends
 def print_pkgrel_bump(old, new, msg=''):
