@@ -103,13 +103,16 @@ def last_commit_msg(pkg):
         response = requests.get(logurl.format(repo), {'h':'packages/'+pkg.name})
         if response.ok: break
     else:
-        return "${color3}ERROR: Repo not found"
-        # raise LookupError("Repo not found for package "+pkg.name)
+        # return "${color3}ERROR: Repo not found"
+        raise RuntimeError("Repo not found for package "+pkg.name)
     e = lxml.html.fromstring(response.content)
     return e.xpath('body/div/div/table/tr[2]/td/a/text()')[0]
 
 def format_commit_msg(pkg):
-    msg = last_commit_msg(pkg)
+    try:
+        msg = last_commit_msg(pkg)
+    except RuntimeError as e:
+            return "${color3} ERROR: "+str(e)
     upgpkg_prefix = "upgpkg: {} {}: ".format(pkg.name, pkg.version)
     return removeprefix(msg, upgpkg_prefix)
     # msg = last_commit_msg(pkg)
