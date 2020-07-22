@@ -67,12 +67,12 @@ def version_diff(a : str, b: str):
 
 arrow = "→"
 def format_version_change(oldver : str, newver : str):
-    prefix, middle_old, middle_new = version_diff(oldver, newver)
+    prefix, diff_old, diff_new = version_diff(oldver, newver)
     if prefix:
         # return '{}[{} {} {}]{}'.format(prefix, middle_old, arrow, middle_new, suffix)
-        return '{}[{} {} {}]'.format(prefix, middle_old, arrow, middle_new)
+        return '{}[{} {} {}]'.format(prefix, diff_old, arrow, diff_new)
     else:
-        return '{} {} {}'.format(oldver, arrow, newver)
+        return '{} {} {}'.format(diff_old, arrow, diff_new)
 
 #Libalpm implements version parsing but pyalpm doesn't provide a wrapper
 def strip_release(ver : str):
@@ -103,7 +103,8 @@ def last_commit_msg(pkg):
         response = requests.get(logurl.format(repo), {'h':'packages/'+pkg.name})
         if response.ok: break
     else:
-        raise LookupError("Repo not found for package", pkg.name)
+        return "${color3}ERROR: Repo not found"
+        # raise LookupError("Repo not found for package "+pkg.name)
     e = lxml.html.fromstring(response.content)
     return e.xpath('body/div/div/table/tr[2]/td/a/text()')[0]
 
