@@ -97,13 +97,13 @@ def print_pkgrel_bump(old, new, msg=''):
 #     return msg.split(':')[-1].strip()
 
 git_repos = ["packages", "community"]
+#TODO: maybe use github mirrors? https://github.com/archlinux
 logurl="https://git.archlinux.org/svntogit/{}.git/log/trunk"
 def last_commit_msg(pkg):
     for repo in git_repos:
         response = requests.get(logurl.format(repo), {'h':'packages/'+pkg.base})
         if response.ok: break
     else:
-        # return "${color3}ERROR: Repo not found"
         raise RuntimeError("Repo not found for package "+pkg.name)
     e = lxml.html.fromstring(response.content)
     return e.xpath('body/div/div/table/tr[2]/td/a/text()')[0]
@@ -112,12 +112,13 @@ def format_commit_msg(pkg):
     try:
         msg = last_commit_msg(pkg)
     except RuntimeError as e:
-            return "${color3} ERROR: "+str(e)
-    upgpkg_prefix = "upgpkg: {} {}: ".format(pkg.name, pkg.version)
-    return removeprefix(msg, upgpkg_prefix)
-    # msg = last_commit_msg(pkg)
-    # prefix_re = r'(?: upgpkg ?[:-] ?)' + re.escape(pkg.name+" "+pkg.version) + r' ?[:-] ?'
-    # return re.sub(prefix_re, "", msg)
+        return "${color3} ERROR: "+str(e)
+    # upgpkg_prefix = "upgpkg: {} {}: ".format(pkg.name, pkg.version)
+    # return removeprefix(msg, upgpkg_prefix)
+    msg = last_commit_msg(pkg)
+    # god I hate regex
+    prefix_re = r'^(?:(?:upgpkg ?[:-] ?)?' + re.escape(pkg.name)+" )?"+re.escape(pkg.version) + r' ?[:-] ?'
+    return re.sub(prefix_re, "", msg)
 
 handle = setup_alpm()
 alpm_update_dbs(handle)
@@ -138,8 +139,9 @@ for pkg in handle.get_localdb().pkgcache: #type: pyalpm.Package
 print()
 
 #TODO: Group by identical commit message (for mass rebuilds and split packages)
-indent = "${goto 30}"
-wrapper = TextWrapper(width=150, initial_indent=indent, subsequent_indent=indent)
+# indent = "${goto 30}" # causes conky to cut off text at right edge
+indent = "   "
+wrapper = TextWrapper(width=75, initial_indent=indent, subsequent_indent=indent)
 for old, new in recompiled:
     print_pkgrel_bump(old, new)
     msg = wrapper.fill(format_commit_msg(new)).replace('#','\\#') #apparently Conky does something special with '#'
