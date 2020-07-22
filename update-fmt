@@ -108,11 +108,13 @@ def last_commit_msg(pkg):
     e = lxml.html.fromstring(response.content)
     return e.xpath('body/div/div/table/tr[2]/td/a/text()')[0]
 
-upgpkg_prefix = re.compile(r'upgpkg')
 def format_commit_msg(pkg):
     msg = last_commit_msg(pkg)
     upgpkg_prefix = "upgpkg: {} {}: ".format(pkg.name, pkg.version)
     return removeprefix(msg, upgpkg_prefix)
+    # msg = last_commit_msg(pkg)
+    # prefix_re = r'(?: upgpkg ?[:-] ?)' + re.escape(pkg.name+" "+pkg.version) + r' ?[:-] ?'
+    # return re.sub(prefix_re, "", msg)
 
 handle = setup_alpm()
 alpm_update_dbs(handle)
@@ -131,6 +133,8 @@ for pkg in handle.get_localdb().pkgcache: #type: pyalpm.Package
             format_version_change(pkg.version, update.version)
             print("{: <20} {}".format(pkg.name, format_version_change(pkg.version, update.version)))
 print()
+
+#TODO: Group by identical commit message
 indent = "${goto 30}"
 wrapper = TextWrapper(width=150, initial_indent=indent, subsequent_indent=indent)
 for old, new in recompiled:
