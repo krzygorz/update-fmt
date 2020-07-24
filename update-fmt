@@ -55,7 +55,7 @@ def prefix_diff(r, a:str, b:str):
     return ''.join(common), diff_a, diff_b
 
 def remove_trivial_pkgrel(ver : str):
-    return removesuffix(ver, "-1")
+    return removesuffix(removesuffix(ver, "-1"), ".arch1")
 
 version_fragment = re.compile(r'(\w+)')
 strip_suffix = "-1"
@@ -141,7 +141,7 @@ print()
 #TODO: Group by identical commit message (for mass rebuilds and split packages)
 # indent = "${goto 30}" # causes conky to cut off text at right edge
 indent = "   "
-wrapper = TextWrapper(width=75, initial_indent=indent, subsequent_indent=indent)
+wrapper = TextWrapper(width=60, initial_indent=indent, subsequent_indent=indent)
 for old, new in recompiled:
     print_pkgrel_bump(old, new)
     msg = wrapper.fill(format_commit_msg(new)).replace('#','\\#') #apparently Conky does something special with '#'
