@@ -6,6 +6,7 @@ from pathlib import Path
 from textwrap import TextWrapper
 from os.path import commonprefix
 from typing import Pattern
+from collections import defaultdict
 # import subprocess
 
 import pyalpm
@@ -40,9 +41,9 @@ def alpm_update_dbs(handle):
         db.update(False)
         t.release()
 
-#TODO: switch to str methods once python 3.9 is released
-def removeprefix(text, prefix):
-    return text[len(prefix):] if text.startswith(prefix) else text
+def sorteditems(d, key, reverse=False):
+    return sorted(d.items(), key=lambda item: key(item[1]), reverse=reverse)
+#TODO: use the removesuffix str method once python 3.9 is released
 def removesuffix(text, suffix):
     return text[:-len(suffix)] if text.endswith(suffix) else text
 
@@ -69,7 +70,6 @@ arrow = "→"
 def format_version_change(oldver : str, newver : str):
     prefix, diff_old, diff_new = version_diff(oldver, newver)
     if prefix:
-        # return '{}[{} {} {}]{}'.format(prefix, middle_old, arrow, middle_new, suffix)
         return '{}[{} {} {}]'.format(prefix, diff_old, arrow, diff_new)
     else:
         return '{} {} {}'.format(diff_old, arrow, diff_new)
@@ -89,6 +89,8 @@ def print_pkgrel_bump(old, new, msg=''):
                     arrow,
                     version_release(new.version),
                     msg))
+def print_commit_msg(msg):
+    print("${color1}"+msg.replace('#','\\#')+"${color2}")
 
 # def last_commit_msg(pkg):
 #     proc = subprocess.Popen(['asp', 'shortlog', pkg.name], stdout=subprocess.PIPE)
@@ -114,54 +116,77 @@ def try_repo(repo, pkg):
 #         return None
 #     return response.json()[0]['commit']['message']
 
+class RequestLimitError(Exception):
+    pass
+class RepoNotFoundError(Exception):
+    pass
+
+global request_limit
+request_limit = 100
 def last_commit_msg(pkg):
+    global request_limit
     for repo in git_repos:
+        request_limit -= 1
+        if request_limit <= 0:
+            raise RequestLimitError("Request limit reached!")
         if msg := try_repo(repo, pkg):
             return msg
-    raise RuntimeError("Repo not found for package "+pkg.name)
-def format_commit_msg(pkg):
+    raise RepoNotFoundError("Repo not found for package "+pkg.name)
+
+def stripped_commit_msg(pkg):
     try:
         msg = last_commit_msg(pkg)
-    except RuntimeError as e:
+    except (RequestLimitError, RepoNotFoundError) as e:
         return "${color3} ERROR: "+str(e)
+
     # god I hate regex
     prefix_re = r'^(?:(?:upgpkg ?[:-] ?)?' + re.escape(pkg.base)+" )?"+re.escape(pkg.version) + r' ?[:-] ?'
     return re.sub(prefix_re, "", msg)
 
 handle = setup_alpm()
 alpm_update_dbs(handle)
-recompiled = []
+updated = []
+recompiled = defaultdict(set)
 haskell_recompiled = []
 
-for pkg in handle.get_localdb().pkgcache: #type: pyalpm.Package
-    update = pyalpm.sync_newversion(pkg, handle.get_syncdbs()) #type: pyalpm.Package
-    if update:
-        if strip_release(pkg.version) == strip_release(update.version):
-            if is_haskell(pkg):
-                haskell_recompiled.append((pkg, update))
+for old in handle.get_localdb().pkgcache: #type: pyalpm.Package
+    if new := pyalpm.sync_newversion(old, handle.get_syncdbs()):
+        upd = (old, new)
+        if strip_release(old.version) == strip_release(new.version):
+            if is_haskell(old):
+                haskell_recompiled.append(upd)
             else:
-                recompiled.append((pkg,update))
+                msg = stripped_commit_msg(new)
+                recompiled[msg].add(upd)
         else:
-            format_version_change(pkg.version, update.version)
-            print("{: <20} {}".format(pkg.name, format_version_change(pkg.version, update.version)))
-print()
+            updated.append(upd)
+for old, new in updated:
+    print("{: <20} {}".format(old.name, format_version_change(old.version, new.version)))
+if updated:
+    print()
 
-#TODO: Group by identical commit message (for mass rebuilds and split packages)
 # indent = "${goto 30}" # causes conky to cut off text at right edge
 indent = "   "
 wrapper = TextWrapper(width=60, initial_indent=indent, subsequent_indent=indent)
-for old, new in recompiled:
-    print_pkgrel_bump(old, new)
+for msg, upds in sorteditems(recompiled, len, True):
+    for old, new in upds:
+        print_pkgrel_bump(old, new)
 
     # TextWrapper removes all newlines from input text, could be a problem if support of multiline messages is added
-    msg = wrapper.fill(format_commit_msg(new)).replace('#','\\#') #apparently Conky does something special with '#'
-    print("${color1}"+msg+"${color2}")
+    print_commit_msg(wrapper.fill(msg))
+    if len(upds) > 1:
+        print()
     # "${font DejaVu Sans Mono :size=10}${color1}"+msg+"${color2}${font}"
+if recompiled:
+    print()
 
 n = len(haskell_recompiled)
-print()
 if n > 3:
     print(n, "haskell packages")
 else:
     for old, new in haskell_recompiled:
         print_pkgrel_bump(old, new)
+if haskell_recompiled:
+    _, sample = haskell_recompiled[0]
+    msg = wrapper.fill(stripped_commit_msg(sample))
+    print_commit_msg(msg)
