@@ -45,9 +45,13 @@ def alpm_update_dbs(handle):
 
 def sorteditems(d, key, reverse=False):
     return sorted(d.items(), key=lambda item: key(item[1]), reverse=reverse)
-#TODO: use the removesuffix str method once python 3.9 is released
+
 def removesuffix(text, suffix):
     return text[:-len(suffix)] if text.endswith(suffix) else text
+def removesuffixes(text, suffixes):
+    for suffix in suffixes:
+        text = removesuffix(text, suffix)
+    return text
 
 def prefix_diff(r, a:str, b:str):
     a_split = r.split(a)
@@ -58,7 +62,7 @@ def prefix_diff(r, a:str, b:str):
     return ''.join(common), diff_a, diff_b
 
 def remove_trivial_pkgrel(ver : str):
-    return removesuffix(removesuffix(ver, "-1"), ".arch1")
+    return removesuffixes(ver, ["-1", ".arch1"])
 
 version_fragment = re.compile(r'(\w+)')
 strip_suffix = "-1"

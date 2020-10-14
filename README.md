@@ -24,6 +24,6 @@ Both can be installed from official repositories.
 ```
 $hr
 ${color1}Updates:
-${execpi 3600 ~/Documents/Python/update-fmt/update-fmt}$color
+${execpi 3600 ~/.local/bin/update-fmt}$color
 $hr
 ```
