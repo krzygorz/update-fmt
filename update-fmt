@@ -16,7 +16,7 @@ import requests
 import lxml.html
 
 #Based on checkupdates
-def setup_alpm():
+def fake_db_handle():
     fake_db_path = Path("/tmp/checkup-db-{}/".format(os.getuid()))
     fake_db_path.mkdir(exist_ok=True)
 
@@ -40,6 +40,8 @@ def alpm_update_dbs(handle):
         t = handle.init_transaction()
         db.update(False)
         t.release()
+
+
 
 def sorteditems(d, key, reverse=False):
     return sorted(d.items(), key=lambda item: key(item[1]), reverse=reverse)
@@ -66,14 +68,6 @@ def version_diff(a : str, b: str):
             remove_trivial_pkgrel(diff_a),
             remove_trivial_pkgrel(diff_b))
 
-arrow = "→"
-def format_version_change(oldver : str, newver : str):
-    prefix, diff_old, diff_new = version_diff(oldver, newver)
-    if prefix:
-        return '{}[{} {} {}]'.format(prefix, diff_old, arrow, diff_new)
-    else:
-        return '{} {} {}'.format(diff_old, arrow, diff_new)
-
 #Libalpm implements version parsing but pyalpm doesn't provide a wrapper
 def strip_release(ver : str):
     return ver.split("-")[0]
@@ -81,16 +75,8 @@ def version_release(ver : str):
     return ver.split("-")[1]
 def is_haskell(pkg):
     return "ghc-libs" in pkg.depends
-def print_pkgrel_bump(old, new, msg=''):
-    print("{: <20} {: <7} [{} {} {}] {}"
-            .format(old.name,
-                    strip_release(old.version),
-                    version_release(old.version),
-                    arrow,
-                    version_release(new.version),
-                    msg))
-def print_commit_msg(msg):
-    print("${color1}"+msg.replace('#','\\#')+"${color2}")
+
+
 
 # def last_commit_msg(pkg):
 #     proc = subprocess.Popen(['asp', 'shortlog', pkg.name], stdout=subprocess.PIPE)
@@ -107,11 +93,10 @@ def try_repo(repo, pkg):
     e = lxml.html.fromstring(response.content)
     return e.xpath('body/div/div/table/tr[2]/td/a/text()')[0]
 
-## Github is slow and ratelimited, probably not worth the simpler format
+# TODO: Try using github graphql api (requires login)
 # logurl = "https://api.github.com/repos/archlinux/svntogit-{}/commits"
 # def try_repo(repo, pkg):
 #     response = requests.get(logurl.format(repo), {'per_page':1, 'path':pkg.base+"/trunk"})
-#     print(response.url)
 #     if not response.ok:
 #         return None
 #     return response.json()[0]['commit']['message']
@@ -121,8 +106,9 @@ class RequestLimitError(Exception):
 class RepoNotFoundError(Exception):
     pass
 
+# Limit in case of mass rebuilds
 global request_limit
-request_limit = 100
+request_limit = 50
 def last_commit_msg(pkg):
     global request_limit
     for repo in git_repos:
@@ -137,56 +123,108 @@ def stripped_commit_msg(pkg):
     try:
         msg = last_commit_msg(pkg)
     except (RequestLimitError, RepoNotFoundError) as e:
-        return "${color3} ERROR: "+str(e)
+        return e
 
     # god I hate regex
     prefix_re = r'^(?:(?:upgpkg ?[:-] ?)?' + re.escape(pkg.base)+" )?"+re.escape(pkg.version) + r' ?[:-] ?'
     return re.sub(prefix_re, "", msg)
 
-handle = setup_alpm()
-alpm_update_dbs(handle)
-updated = []
-recompiled = defaultdict(set)
-haskell_recompiled = []
-
-for old in handle.get_localdb().pkgcache: #type: pyalpm.Package
-    if new := pyalpm.sync_newversion(old, handle.get_syncdbs()):
-        upd = (old, new)
-        if strip_release(old.version) == strip_release(new.version):
-            if is_haskell(old):
-                haskell_recompiled.append(upd)
+def collect_updates(handle):
+    updated = []
+    recompiled = defaultdict(set)
+    haskell_recompiled = []
+    for old in handle.get_localdb().pkgcache: #type: pyalpm.Package
+        if new := pyalpm.sync_newversion(old, handle.get_syncdbs()):
+            upd = (old, new)
+            if strip_release(old.version) == strip_release(new.version):
+                if is_haskell(old):
+                    haskell_recompiled.append(upd)
+                else:
+                    msg = stripped_commit_msg(new)
+                    recompiled[msg].add(upd)
             else:
-                msg = stripped_commit_msg(new)
-                recompiled[msg].add(upd)
-        else:
-            updated.append(upd)
-for old, new in updated:
-    print("{: <20} {}".format(old.name, format_version_change(old.version, new.version)))
-if updated:
-    print()
+                updated.append(upd)
+    return updated, recompiled, haskell_recompiled
 
-# indent = "${goto 30}" # causes conky to cut off text at right edge
+
+
+# Apparently Conky does something special with '#', must be escaped, otherwise everything after the # is not displayed
+# package names and versions don't require escaping since they can't contain '#', but commit messages can (eg. when referencing an issue: FS#1234).
+def conky_escape(str):
+    return str.replace('#','\\#')
+
+arrow = "→"
+normal_color = "${color2}"
+msg_color = "${color1}"
+error_color = "${color3}"
+
+# normal_color="\u001b[0m"
+# msg_color="\u001b[90m"
+# error_color="\u001b[31m"
+
 indent = "   "
+# indent = "${goto 30}" # causes conky to cut off text at right edge
+# TextWrapper removes all newlines from input text, could be a problem if support for multiline messages is added
 wrapper = TextWrapper(width=60, initial_indent=indent, subsequent_indent=indent)
-for msg, upds in sorteditems(recompiled, len, True):
-    for old, new in upds:
-        print_pkgrel_bump(old, new)
 
-    # TextWrapper removes all newlines from input text, could be a problem if support of multiline messages is added
-    print_commit_msg(wrapper.fill(msg))
-    if len(upds) > 1:
+def print_pkgrel_bump(old, new, msg=''):
+    print("{: <20} {: <7} [{} {} {}] {}"
+            .format(old.name,
+                    strip_release(old.version),
+                    version_release(old.version),
+                    arrow,
+                    version_release(new.version),
+                    msg))
+def print_commit_msg(msg):
+    if isinstance(msg, str):
+        msg = msg_color + conky_escape(wrapper.fill(msg))
+    else:
+        msg = indent + error_color + "ERROR: " + str(msg)
+    print(msg+normal_color)
+
+def format_version_change(oldver : str, newver : str):
+    prefix, diff_old, diff_new = version_diff(oldver, newver)
+    if prefix:
+        return '{}[{} {} {}]'.format(prefix, diff_old, arrow, diff_new)
+    else:
+        return '{} {} {}'.format(diff_old, arrow, diff_new)
+
+def print_updates(updated):
+    for old, new in updated:
+        print("{: <20} {}".format(old.name, format_version_change(old.version, new.version)))
+    if updated:
         print()
-    # "${font DejaVu Sans Mono :size=10}${color1}"+msg+"${color2}${font}"
-if recompiled:
-    print()
 
-n = len(haskell_recompiled)
-if n > 3:
-    print(n, "haskell packages")
-else:
-    for old, new in haskell_recompiled:
-        print_pkgrel_bump(old, new)
-if haskell_recompiled:
-    _, sample = haskell_recompiled[0]
-    msg = wrapper.fill(stripped_commit_msg(sample))
-    print_commit_msg(msg)
+def print_recompiled(recompiled):
+    for msg, upds in sorteditems(recompiled, len, True):
+        for old, new in upds:
+            print_pkgrel_bump(old, new)
+        print_commit_msg(msg)
+        if len(upds) > 1:
+            print()
+    if recompiled:
+        print()
+
+def print_haskell_recompiled(haskell_recompiled, max_pkgs):
+    n = len(haskell_recompiled)
+    if n > max_pkgs:
+        print(n, "haskell packages")
+    else:
+        for old, new in haskell_recompiled:
+            print_pkgrel_bump(old, new)
+    if haskell_recompiled:
+        _, sample = haskell_recompiled[0]
+        print_commit_msg(stripped_commit_msg(sample))
+
+def main():
+    handle = fake_db_handle()
+    alpm_update_dbs(handle)
+    updated, recompiled, haskell_recompiled = collect_updates(handle)
+
+    print(normal_color, end='')
+    print_updates(updated)
+    print_recompiled(recompiled)
+    print_haskell_recompiled(haskell_recompiled, 3)
+
+if __name__ == "__main__":
+    main()
