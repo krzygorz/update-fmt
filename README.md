@@ -21,9 +21,14 @@ The output is formatted for use with Conky, but with minimal modifications you s
 Both can be installed from official repositories.
 
 ## Example conky config fragment
+
 ```
 $hr
 ${color1}Updates:
 ${execpi 3600 ~/.local/bin/update-fmt}$color
 $hr
 ```
+
+### Screenshot
+
+![](updatefmt.png)
