@@ -16,9 +16,10 @@ The output is formatted for use with Conky, but with minimal modifications you s
 ## Dependencies
 
 - `pyalpm`
+- `python-requests`
 - `python-lxml`
 
-Both can be installed from official repositories.
+They can be installed from official repositories.
 
 ## Example conky config fragment
 
