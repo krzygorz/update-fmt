@@ -17,9 +17,8 @@ The output is formatted for use with Conky, but with minimal modifications you s
 
 - `pyalpm`
 - `python-requests`
-- `python-lxml`
 
-They can be installed from official repositories.
+They can be installed from the official Arch repositories.
 
 ## Example conky config fragment
 
