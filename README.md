@@ -20,14 +20,19 @@ The output is formatted for use with Conky, but with minimal modifications you s
 
 They can be installed from the official Arch repositories.
 
+## Config
+
+Generate a read-only github access token at https://github.com/settings/tokens and paste it to `~/.config/updatefmt-ghtoken`.
+
+
 ## Example conky config fragment
 
 ```
-$hr
-${color1}Updates:
+Updates:
 ${execpi 3600 ~/.local/bin/update-fmt}$color
-$hr
 ```
+
+Do not set the refresh interval too low as it will unnecessairly load the Arch mirrors.
 
 ### Screenshot
 
