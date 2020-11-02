@@ -4,15 +4,15 @@ import re
 import signal
 from pathlib import Path
 from textwrap import TextWrapper
+from configparser import ConfigParser
 from os.path import commonprefix
-from typing import Pattern
 from collections import defaultdict
+from typing import Pattern
 
 import pyalpm
 from pycman.config import PacmanConfig
 
 import requests
-import lxml.html
 
 #Based on checkupdates
 def fake_db_handle():
@@ -99,11 +99,12 @@ def strip_upgpkg_prefix(msg : str, pkg : pyalpm.Package):
 
 
 # Based on https://gist.github.com/gbaman/b3137e18c739e0cf98539bf4ec4366ad
-with open(Path("~/.config/updatefmt-ghtoken").expanduser()) as f:
-    token = f.read()
-headers = {"Authorization": "Bearer "+token}
-def run_query(query):
-    request = requests.post('https://api.github.com/graphql', json={'query': query}, headers=headers)
+def run_query(query, token):
+    request = requests.post(
+        'https://api.github.com/graphql',
+        json = {'query': query},
+        headers = {"Authorization": "Bearer "+token}
+    )
     if request.status_code == 200:
         return request.json()
     else:
@@ -165,13 +166,13 @@ def by_msg(pairs):
         ret[msg].add(upd)
     return ret
 
-def fetch_messages(upds):
+def fetch_messages(upds, token):
     if not upds:
         return {}
     # to distinguish between packages in response we have to give each subquery an alias
     # we assign a number to every package to avoid having to alias subqueries with escaped package names
     query = build_query([(i, new) for i, (old, new) in enumerate(upds)])
-    response = run_query(query)
+    response = run_query(query, token)
     return unpack_response(response, upds)
 
 def sort_updates(updates):
@@ -255,10 +256,14 @@ def print_haskell_recompiled(haskell_recompiled, max_pkgs):
     #     print_commit_msg(stripped_commit_msg(sample))
 
 def main():
+    config = ConfigParser()
+    config.read(Path("~/.config/update-fmt.conf").expanduser())
+    token = config['Login']['GithubToken']
+
     handle = fake_db_handle()
     alpm_update_dbs(handle)
     updated, recompiled, haskell_recompiled = sort_updates(get_updates(handle))
-    messages = fetch_messages(recompiled)
+    messages = fetch_messages(recompiled, token)
     messages = by_msg(
         ((upd, strip_upgpkg_prefix(msg, upd[0])) for upd, msg in messages)
     )

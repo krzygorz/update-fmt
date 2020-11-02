@@ -22,10 +22,15 @@ They can be installed from the official Arch repositories.
 
 ## Config
 
-Generate a read-only github access token at https://github.com/settings/tokens and paste it to `~/.config/updatefmt-ghtoken`.
+Generate a read-only github access token at https://github.com/settings/tokens. Create `~/.config/updatefmt.conf` with the following content:
+
+```
+[Login]
+GithubToken = <your token>
+```
 
 
-## Example conky config fragment
+### Example conky config fragment
 
 ```
 Updates:
@@ -34,6 +39,6 @@ ${execpi 3600 ~/.local/bin/update-fmt}$color
 
 Do not set the refresh interval too low as it will unnecessairly load the Arch mirrors.
 
-### Screenshot
+## Screenshot
 
 ![](updatefmt.png)
