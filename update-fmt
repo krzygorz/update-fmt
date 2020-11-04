@@ -265,7 +265,7 @@ def main():
     updated, recompiled, haskell_recompiled = sort_updates(get_updates(handle))
     messages = fetch_messages(recompiled, token)
     messages = by_msg(
-        ((upd, strip_upgpkg_prefix(msg, upd[0])) for upd, msg in messages)
+        ((upd, strip_upgpkg_prefix(msg, upd[1])) for upd, msg in messages)
     )
 
     print(normal_color, end='')
