@@ -22,7 +22,7 @@ They can be installed from the official Arch repositories.
 
 ## Config
 
--Generate a read-only github access token at https://github.com/settings/tokens and paste it to `~/.config/updatefmt-ghtoken`.
+- Generate a read-only github access token at https://github.com/settings/tokens and paste it to `~/.config/updatefmt-ghtoken`.
 
 
 ### Example conky config fragment
