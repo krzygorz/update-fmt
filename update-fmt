@@ -134,7 +134,7 @@ fragment refmsg on Ref{
 # We have to dynamically build queries in order to batch requests for all branches into one query
 def pkg_query(index, pkg):
     # graphql names can't begin with a digit so we prefix an underscore
-    return f'    _{index}: ref(qualifiedName: "refs/heads/packages/{pkg.name}") {{... refmsg}}'
+    return f'    _{index}: ref(qualifiedName: "refs/heads/packages/{pkg.base}") {{... refmsg}}'
 def repo_query(db, numbered_pkgs):
     owner, repo = db_repo(db)
     pkg_queries = "\n".join([pkg_query(i, pkg) for i, pkg in numbered_pkgs])
