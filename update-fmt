@@ -4,7 +4,6 @@ import re
 import signal
 from pathlib import Path
 from textwrap import TextWrapper
-from configparser import ConfigParser
 from os.path import commonprefix
 from collections import defaultdict
 from typing import Pattern
@@ -199,11 +198,9 @@ def conky_escape(str):
 arrow = "→"
 normal_color = "${color2}"
 msg_color = "${color1}"
-error_color = "${color3}"
 
 # normal_color="\u001b[0m"
 # msg_color="\u001b[90m"
-# error_color="\u001b[31m"
 
 indent = "   "
 # indent = "${goto 30}" # causes conky to cut off text at right edge
@@ -255,10 +252,9 @@ def print_haskell_recompiled(haskell_recompiled, max_pkgs):
     #     _, sample = haskell_recompiled[0]
     #     print_commit_msg(stripped_commit_msg(sample))
 
+cfgpath = Path("~/.config/updatefmt-ghtoken")
 def main():
-    config = ConfigParser()
-    config.read(Path("~/.config/update-fmt.conf").expanduser())
-    token = config['Login']['GithubToken']
+    token = cfgpath.expanduser().read_text().strip()
 
     handle = fake_db_handle()
     alpm_update_dbs(handle)
