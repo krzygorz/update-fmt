@@ -67,7 +67,7 @@ def prefix_diff(r, a:str, b:str):
     common = commonprefix([a_split, b_split])
     diff_a = ''.join(a_split[len(common):])
     diff_b = ''.join(b_split[len(common):])
-    return ''.join(common), diff_a, diff_b
+    return ''.join(common), diff_a, diff_b, len(common)
 
 def remove_trivial_pkgrel(ver : str):
     return removesuffixes(ver, ["-1", ".arch1"])
@@ -75,7 +75,7 @@ def remove_trivial_pkgrel(ver : str):
 version_fragment = re.compile(r'(\w+)')
 strip_suffix = "-1"
 def version_diff(a : str, b: str):
-    prefix, diff_a, diff_b = prefix_diff(version_fragment, a, b)
+    prefix, diff_a, diff_b, _ = prefix_diff(version_fragment, a, b)
     return (prefix,
             remove_trivial_pkgrel(diff_a),
             remove_trivial_pkgrel(diff_b))
@@ -189,6 +189,11 @@ def sort_updates(updates):
             updated.append(upd)
     return updated, recompiled, haskell_recompiled
 
+def upd_importance(update):
+    old, new = update
+    prefix, diff_a, diff_b, common = prefix_diff(version_fragment, old.version, new.version)
+    return common
+
 
 # Apparently Conky does something special with '#', must be escaped, otherwise everything after the # is not displayed
 # Package names and versions don't require escaping since they can't contain '#', but commit messages can (eg. when referencing an issue: "FS#1234").
@@ -259,6 +264,7 @@ def main():
     handle = fake_db_handle()
     alpm_update_dbs(handle)
     updated, recompiled, haskell_recompiled = sort_updates(get_updates(handle))
+    updated = sorted(updated, key=upd_importance)
     messages = fetch_messages(recompiled, token)
     messages = by_msg(
         ((upd, strip_upgpkg_prefix(msg, upd[1])) for upd, msg in messages)
