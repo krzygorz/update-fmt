@@ -230,19 +230,41 @@ def format_version_change(oldver : str, newver : str):
     else:
         return '{} {} {}'.format(diff_old, arrow, diff_new)
 
-def print_updates(updated):
+def trim_list(lst, maxlen):
+    n = len(lst)
+    shortened = n > maxlen
+    if shortened:
+        lst = lst[:maxlen]
+    return lst, n, shortened
+
+def print_updates(updated, max_items):
+    updated, n_updates, shortened = trim_list(updated, max_items)
     for old, new in updated:
         print("{: <20} {}".format(old.name, format_version_change(old.version, new.version)))
+    if shortened:
+        print("And {} more updates".format(n_updates-max_items))
     if updated:
         print()
+    return len(updated)
 
-def print_recompiled(recompiled):
+def print_recompiled(recompiled, max_items):
+    counter = 0
     for msg, upds in sorteditems(recompiled, len, True):
+        shortened = False
         for old, new in upds:
             print_pkgrel_bump(old, new)
+            counter += 1
+            if counter == max_items:
+                shortened = True
+                break
         print_commit_msg(msg)
+        if shortened:
+            break
         if len(upds) > 1:
             print()
+    if counter == max_items:
+        print("(shortened)")
+        # print("And {} more recompiled packages".format(n_updates-max_items))
     if recompiled:
         print()
 
@@ -271,8 +293,9 @@ def main():
     )
 
     print(normal_color, end='')
-    print_updates(updated)
-    print_recompiled(messages)
+    max_items = 30
+    max_items -= print_updates(updated, max_items)
+    print_recompiled(messages, max_items)
     print_haskell_recompiled(haskell_recompiled, 3)
 
 if __name__ == "__main__":
