@@ -248,6 +248,8 @@ def print_updates(updated, max_items):
     return len(updated)
 
 def print_recompiled(recompiled, max_items):
+    if max_items == 0:
+        return
     counter = 0
     for msg, upds in sorteditems(recompiled, len, True):
         shortened = False
@@ -293,8 +295,9 @@ def main():
     )
 
     print(normal_color, end='')
-    max_items = 30
-    max_items -= print_updates(updated, max_items)
+    max_items = 25
+    max_updates = 15
+    max_items -= print_updates(updated, max_updates)
     print_recompiled(messages, max_items)
     print_haskell_recompiled(haskell_recompiled, 3)
 
