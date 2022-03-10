@@ -32,7 +32,7 @@ Updates:
 ${execpi 3600 ~/.local/bin/update-fmt}$color
 ```
 
-Do not set the refresh interval too low as it will unnecessairly load the Arch mirrors.
+Do not set the refresh interval too low as it will unnecessarily load the Arch mirrors.
 
 ## Screenshot
 
